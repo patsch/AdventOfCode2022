@@ -4,6 +4,7 @@ class Tree
   attr_accessor :parent
   attr_accessor :children
   attr_accessor :direction
+  attr_accessor :visited
 
   @@nodecount = 0
 
@@ -16,6 +17,7 @@ class Tree
     end
     @children = []
     @direction = direction
+    @visited = false
     @@nodecount = @@nodecount + 1
   end
 
@@ -82,19 +84,8 @@ class Reception
 
     @tree = Tree.new(@start)
 
-    build_tree(@tree,0)
+    check_tree(@tree,0)
 
-    if false
-      ret = bfs
-
-      path = []
-      x = ret
-      while !x.nil?
-        path << x.content
-        x = x.parent
-      end
-      puts "Shortest Path : #{path.reverse} - has #{path.size-1} steps"
-    end
 
     if false
       if !@min_steps.nil?
@@ -111,57 +102,6 @@ class Reception
       end
     end
 
-  end
-
-  def check_content(tree,arr)
-    arr << tree.content
-    tree.children.each { |c|
-      if arr.include?(c.content)
-        puts "#{c.content} appears multiple times !"
-      else
-        arr << c.content
-        check_content(c,arr)
-      end
-    }
-  end
-
-  # procedure BFS(G, root) is
-  #       let Q be a queue
-  #       label root as explored
-  #       Q.enqueue(root)
-  #       while Q is not empty do
-  #           v := Q.dequeue()
-  #           if v is the goal then
-  #               return v
-  #           for all edges from v to w in G.adjacentEdges(v) do
-  #               if w is not labeled as explored then
-  #                   label w as explored
-  #                   w.parent := v
-  #                   Q.enqueue(w)
-  #
-
-  def bfs
-    root = Tree::TreeNode.new("X0", @start)
-    q = []
-    q << root
-    explored = []
-    explored << root
-    len = 0
-    while !q.empty?
-      pos = q.pop
-      len+=1
-      if pos.content == @ziel
-        puts "Yeah : #{len}"
-        return pos
-      end
-      destinations_for(pos.content).each { |nx|
-        if !explored.include?(nx)
-          nxn = Tree::TreeNode.new("X#{explored.size}", nx)
-          explored << nx
-          q << nxn
-        end
-      }
-    end
   end
 
   def init_map
@@ -222,7 +162,7 @@ class Reception
     puts
   end
 
-  def build_tree(node,level)
+  def check_tree(node,level)
     # given a tree node, check if we are at the destination
     if node.content == @ziel
       # Arrived !
@@ -241,6 +181,8 @@ class Reception
         puts "New Record !"
       end
     else
+
+      node.visited = true
       # not there yet... check if we can go anywhere from here we haven't been to before
       #return if Tree.nodecount >= 300
 
@@ -272,34 +214,77 @@ class Reception
         print_map(visited)
         # check_content(@tree,[])
         # @tree.print_tree
-      end
-      #return if Tree.nodecount >= 100
+      end # debug output
 
       dests = destinations_for(node.content,node.direction)
 
       if !dests.empty?
+        next_node = nil
         subnode_index = 0
         #puts "Destinations for #{node.content} are #{dests}"
         dests.each do |d|
           next_pos = d[0]
           direction = d[1]
-          visited_earlier = false
-          x = node
-          while !visited_earlier && !x.nil?
-            visited_earlier = x.content[0] == next_pos[0] && x.content[1] == next_pos[1]
-            x = x.parent
-          end
+          #visited_earlier = false
+          #x = node
+          #while !visited_earlier && !x.nil?
+          #  visited_earlier = x.content[0] == next_pos[0] && x.content[1] == next_pos[1]
+          #  x = x.parent
+          #end
 
-          if !visited_earlier
+          if true # !visited_earlier
             new_node = Tree.new(next_pos,node,direction)
-            build_tree(new_node,level+1)
+            next_node = new_node if next_node.nil?
           end
         end
+        check_tree(next_node,level+1) if !next_node.nil?
+      else
+        puts "We can't go anywhere from #{node.content} that we haven't been to before - go back to a previous node with unvisited children !"
+        nx = node
+        unvisited = nil
+        l = level
+        while unvisited.nil? && !nx.nil?
+          nx = nx.parent
+          l -= 1
+          if !nx.nil?
+            nx.children.each { |cn|
+              if !cn.visited
+                unvisited = cn
+                break
+              end
+            }
+          end
+          if unvisited.nil?
+            puts "End of the road !"
+            puts
+            nx = node
+            unvisited = nil
+            l = level
+            while unvisited.nil? && !nx.nil?
+              nx = nx.parent
+              l -= 1
+              if !nx.nil?
+                puts "Level #{l} : #{nx.content} - #{nx.children.collect { |c| "#{c.content} - Visited : #{c.visited}" }}"
+              end
+            end
+
+            puts "Here is the map:"
+            puts
+            visited = init_map
+            mark_node(visited,@tree)
+            print_map(visited)
+            exit
+          else
+            check_tree(unvisited,l+1)
+          end
+
+        end
       end
+
     end
   end
 
-  def destinations_for(pos,prevdir)
+  def destinations_for(pos, prevdir = nil)
     nomansland = prevdir.nil? ? nil : [ prevdir[0]*-1, prevdir[1]*-1 ]
     dests = []
     alt = @altmap[pos[1]][pos[0]]
