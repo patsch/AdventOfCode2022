@@ -107,68 +107,52 @@ class Beacon
     ret
   end
 
-  def find_beacon(sensors, min,max)
-    y = min
-
-    checkme= []
-    sensors.each_key { |pos|
-      sensor = sensors[pos]
-      x = pos[0] - sensor[:distance] - 1
-      y = pos[1]
-
-      # go up
-      ymin = y - sensor[:distance]
-      ymin = min if ymin < min
-
-      dist = sensor[:distance] + 1
-      while y <= ymin
-        if (taxiride([x,y],pos) == dist)
-          checkme << [x,y]
+  # check if the given position is a possible beacon location - we already know it's on the outline of the sensor indicated as 'six',
+  # so no check against the other sensors by testing the manhattan distance to them - if they are all outside range then the location
+  # must be the beacon
+  def check_position(sensors,six,pos, min,max)
+    ret = false
+    if pos[0] >= min && pos[0] <= max && pos[1] >= min && pos[1] <= max
+      six2 = 0
+      ret = true
+      sensors.each_key { |sensor_pos|
+        break if !ret
+        if six2 != six
+          ret = taxiride(sensor_pos,pos) > sensors[sensor_pos][:distance]
         end
-        if taxiride([x+1,y],pos) == d
-          x+=1
-          checkme << [x,y]
-        end
-        y-=1
-        if taxiride([x,y],pos) == d
-          checkme << [x,y]
-        end
-        if taxiride([x+1,y],pos) == d
-          x+=1
-          checkme << [x,y]
-        end
-      end
-      
-        # dist = (x - pos[0]).abs + (y - pos[1]).abs
-      # dist^2 - (y - pos[1])^2  = (x - pos[0])^2
-      # x = +/- sqrt(dist^2 - (y - pos[1])^2) + pos[0]
-      ydiff = y - pos[1]
-      dif = sensor[:distance]*sensor[:distance] - ydiff*ydiff
-        noton = dif < 0
-        if !noton
-          begin
-            val = Math.sqrt(dif)
-          rescue => e
-            puts "Cannot do sqrt of #{dif} : #{e.to_s}"
-          end
-
-          x0 = pos[0] - val.to_i + 1
-          x1 = pos[0] + val.to_i - 1
-          x0 = min if x0 < min
-          x0 = max if x0 > max
-          x1 = min if x1 < min
-          x1 = max if x1 > max
-          covered = add_coverage(covered,x0,x1,min,max)
-          break if covered.include?([min,max])
-        end
-
+        six2+=1
       }
-      if covered.uniq.size > 1 && !covered.include?([min,max])
-        puts "Have something at row #{y} : #{covered}"
-      end
-      y+=1
     end
-    nil
+    if ret
+      puts "Got a match at #{pos} !"
+    end
+    ret
+  end
+
+  def find_beacon(sensors, min,max)
+    pozibles = []
+    six = 0
+    found = false
+    sensors.each_key { |pos|
+      puts "Checking outline of sensor #{six+1}..."
+      break if found
+      sensor = sensors[pos]
+      # start at sensor level, then work up/down
+      # the possible locations are one further away then the current reach of the sensor
+      desired_distance = sensor[:distance] + 1
+      ymove = 0
+      xmove = desired_distance
+      while xmove >= 0 && !found
+        # don't worry about doubling up
+        found ||= check_position(sensors,six,[ pos[0] - xmove, pos[1] + ymove ],min,max)
+        found ||= check_position(sensors,six,[ pos[0] + xmove, pos[1] + ymove ],min,max)
+        found ||= check_position(sensors,six,[ pos[0] - xmove, pos[1] - ymove ],min,max)
+        found ||= check_position(sensors,six,[ pos[0] + xmove, pos[1] - ymove ],min,max)
+        ymove += 1
+        xmove -= 1
+      end
+      six += 1
+    }
   end
 
   def find_beacon2(sensors, min,max)
