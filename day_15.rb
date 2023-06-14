@@ -203,8 +203,9 @@ class Beacon
 
     #puts "Part 1 : #{ret}"
 
-    ret = find_beacon(sensors,0,4000000)
-    puts "Part 2 : #{ret}"
+    t0 = Time.now
+    find_beacon(sensors,0,4000000)
+    puts "Part 2 took #{(Time.now - t0).to_i} secs to complete"
   end
   Beacon.new.run
 

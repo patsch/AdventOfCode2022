@@ -82,6 +82,14 @@ class Reception
 
     puts "Map is #{@width} x #{@height} (#{@width*@height} positions); Start is #{@start}, Ziel is #{@ziel}"
 
+    paths = Hash.new
+    y = 0
+    while y <= @height
+      x = 0
+      while x <= @width
+
+      end
+    end
     @tree = Tree.new(@start)
 
     check_tree(@tree,0)

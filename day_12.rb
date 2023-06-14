@@ -1,104 +1,44 @@
-class Reception
+#!/usr/bin/env ruby
 
-  def initialize
-    @min_steps = nil
-    @start = nil
-    @ziel = nil
-    @width = nil
-    @height = nil
-    @tries = 0
+# this is https://github.com/tobyaw/advent-of-code-2022/blob/master/day_12.rb
+# unfortunately I never figured out what was wrong with mine, and this approach is very clear and easy ro read
+
+# did day 14 - before: 1029, first star day 12 : 1063 ; 2nd star day 12: 1097
+
+def find_next_steps(grid, heads, target, polarity, depth = 1)
+  return if heads.empty?
+
+  next_heads = []
+
+  heads.each do |xh, yh|
+    grid[yh][xh][:seen] = true
+
+    steps = [[xh, yh + 1], [xh, yh - 1], [xh + 1, yh], [xh - 1, yh]]
+              .reject { |x, y| x.negative? || y.negative? }
+              .filter { |x, y| (x < grid.first.size) && (y < grid.size) }
+              .reject { |x, y| grid[y][x][:seen].eql? true }
+              .filter { |x, y| polarity * (grid[y][x][:h] - grid[yh][xh][:h]) < 2 }
+
+    return depth if steps.map { |x, y| grid[y][x][:char] }.include? target
+
+    next_heads += steps
   end
 
-  def run
+  find_next_steps(grid, next_heads.uniq, target, polarity, depth + 1)
+end
 
-    fin = File.open("day_12_input.txt","rt")
+input = File.readlines('day_12_input.txt', chomp: true)
 
-    @altmap = []
+[
+  { from: 'S', target: 'E', polarity: 1 },
+  { from: 'E', target: 'a', polarity: -1 }
+].each do |part|
+  y = input.find_index { |i| i.include? part[:from] }
+  x = input[y].index(part[:from])
 
-    start = nil
-    ziel = nil
-
-    row = 0
-    while iline = fin.gets
-      line = iline.chomp
-      @width = line.length if @width.nil?
-      arr = []
-      col = 0
-      line.each_byte { |c|
-        if c >= 97 && c <= 122
-          arr << (c - 97)
-        else
-          case c
-          when 83 # S
-            @start = [ col , row ]
-            # start at altitude 0 (min altitude)
-            arr << 0
-          when 69 # E
-            # finish is at max altitude (25)
-            arr << 25
-            @ziel = [ col, row ]
-          end
-        end
-        col+=1
-      }
-      @altmap << arr
-      row+=1
-    end
-    @height = row
-    fin.close
-
-    puts "Map is #{@width} x #{@height} ; Start is #{@start}, Ziel is #{@ziel}"
-
-    find_routes(@start,1, been = [ ])
+  grid = input.map do |i|
+    i.chars.map { |j| { char: j, h: j.tr('SE', 'az').ord, seen: false } }
   end
 
-  def destinations_for(pos,been)
-    dests = []
-    alt = @altmap[pos[1]][pos[0]]
-    [ [ -1 , 0], [ 0, -1 ], [ 1, 0], [ 0, 1 ] ].each { |move|
-      newx = pos[0] + move[0]
-      newy = pos[1] + move[1]
-      if newx >= 0 && newx < @width && newy >= 0 && newy < @height
-        new_alt = @altmap[newy][newx]
-        alti = new_alt - alt
-        if alti <= 1
-          dests << [ newx, newy ] if !been.include?([newx, newy])
-        end
-      end
-    }
-    # order destination by distance from target
-    dests.sort! { |a,b|
-      d1 = (@ziel[1] - a[1])*(@ziel[1] - a[1]) + (@ziel[0] - a[0])*(@ziel[0] - a[0])
-      d2 = (@ziel[1] - b[1])*(@ziel[1] - b[1]) + (@ziel[0] - b[0])*(@ziel[0] - b[0])
-      d1 <=> d2
-    }
-    dests
-  end
-
-  def same_pos(p1,p2)
-    p1[0] == p2[0] && p1[1] == p2[1]
-  end
-
-  def find_routes(pos,steps, been)
-    @tries += 1
-    puts "Pos is #{pos}, Ziel is #{@ziel} , Tries : #{@tries} - Steps is #{steps}, min steps is #{@min_steps} been has #{been.size}" if @tries % 20000 == 0
-    if same_pos(pos,@ziel)
-      if @min_steps.nil? || @min_steps > steps
-        puts "*"*80
-        puts "Found new minimum length route involving #{steps} steps!"
-        puts "*"*80
-        @min_steps = steps
-        File.open("min_steps.txt","wt") { |f| f.puts @min_steps }
-      end
-    elsif @min_steps.nil? || @min_steps >= steps
-      pozibles = destinations_for(pos,been)
-      while !pozibles.empty?
-        b2 = been.dup
-        b2 << pos
-        find_routes(pozibles.shift,steps+1,b2)
-      end
-    end
-  end
-  Reception.new.run
-
+  puts find_next_steps(grid, [[x, y]], part[:target], part[:polarity])
 end
